@@ -1,23 +1,27 @@
 package com.generalprocessingunit.processing;
 
+import com.illposed.osc.OSCListener;
+import com.illposed.osc.OSCMessage;
+import com.illposed.osc.OSCPortIn;
 import processing.core.PApplet;
 
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 
-public class Main extends PApplet /*implements OSCListener */{
+public class Main extends PApplet implements OSCListener {
     List<Note> notes = new ArrayList<Note>();
     List<Monstar> monstars = new ArrayList<Monstar>();
 
     // show notes recieved from 10 seconds ago
     static final int EVENT_HORIZON = 5000;
     int millisAtLastMonstar = 0;
-    int life = 100;
+    float life = 100;
     int millisAtLastdamage=0;
     int score = 0;
-//    OSCPortIn oscPortIn;
+    OSCPortIn oscPortIn;
 
 	public static void main(String[] args){
 		PApplet.main(new String[] { /*"--present",*/ "com.generalprocessingunit.processing.Main" });
@@ -26,14 +30,14 @@ public class Main extends PApplet /*implements OSCListener */{
     public Main(){
         super();
 
-//        try{
-//            oscPortIn = new OSCPortIn(7400);
-//            oscPortIn.addListener("/note", this);
-//            oscPortIn.startListening();
-//        }
-//        catch (Exception e){
-//            System.out.print(e);
-//        }
+        try{
+            oscPortIn = new OSCPortIn(7400);
+            oscPortIn.addListener("/note", this);
+            oscPortIn.startListening();
+        }
+        catch (Exception e){
+            System.out.print(e);
+        }
     }
 		
 	@Override
@@ -116,6 +120,7 @@ public class Main extends PApplet /*implements OSCListener */{
             if(d > EVENT_HORIZON){
                 if(note.active){
                     life -= 5;
+                    millisAtLastdamage = millis();
                     note.active=false;
                 }
 
@@ -138,22 +143,22 @@ public class Main extends PApplet /*implements OSCListener */{
             rotate(theta);
 
             int octave = note.note/12;
-            ellipse(0 , -400 , 200 - 25*octave, 1 + 25*octave );
+            ellipse(0 , -400 , 200 - 25*octave, 0 + 25*octave );
 //            ellipse(-300 + note.note%12 * 70, note.note/12 * -100 +  d*0.1f, 50, 50);
             popMatrix();
 
         }
 
         if((millis() - millisAtLastMonstar > 500)){
-            if((int)random(2) == 0){
-                monstars.add(new Monstar((int)random(12), 3000));
+            if((int)random(3) == 0){
+                monstars.add(new Monstar((int)random(6), 3000));
 
                 //TODO: pick notes according to randomly picked sequences of deltas
             }
             millisAtLastMonstar = millis();
         }
 
-        life = min(100, life+ (millis() - millisAtLastdamage < 2000 ? 0 : 1 ));
+        life = min(100f, life + (millis() - millisAtLastdamage < 2000 ? 0f : 0.1f ));
         if(life <= 0){
             score = 0;
             life = 100;
@@ -162,7 +167,6 @@ public class Main extends PApplet /*implements OSCListener */{
         noStroke();
         fill(255,0,0);
         rect(width - (width/10), 0, ((width/10f)/100f) * life, 20);
-        System.out.println(life);
 
         noFill();
         strokeWeight(2);
@@ -174,25 +178,25 @@ public class Main extends PApplet /*implements OSCListener */{
         }
 	}
 
-//
-//    @Override
-//    public void acceptMessage(Date time, OSCMessage message) {
-//        message.getAddress();
-//        message.getArguments();
-//
-//
-//        int note = (Integer) message.getArguments()[0];
-//
-//        notes.add(new Note(note, millis()));
-////        System.out.print(message.getArguments());
-//
-//    }
-//
-//    @Override
-//    public void destroy() {
-//        super.destroy();
-//        oscPortIn.close();
-//    }
+
+    @Override
+    public void acceptMessage(Date time, OSCMessage message) {
+        message.getAddress();
+        message.getArguments();
+
+
+        int note = (Integer) message.getArguments()[0];
+
+        notes.add(new Note(note, millis()));
+//        System.out.print(message.getArguments());
+
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        oscPortIn.close();
+    }
 
 
     @Override
