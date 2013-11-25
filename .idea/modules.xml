@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../JavaOSC/modules/core/src/main/JavaOSC.iml" filepath="$PROJECT_DIR$/../JavaOSC/modules/core/src/main/JavaOSC.iml" />
       <module fileurl="file://$PROJECT_DIR$/ProcessingBlank.iml" filepath="$PROJECT_DIR$/ProcessingBlank.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../processing/core/core.iml" filepath="$PROJECT_DIR$/../processing/core/core.iml" />
       <module fileurl="file://C:/Dev Tools/processing/core/core.iml" filepath="C:/Dev Tools/processing/core/core.iml" />
     </modules>
   </component>
