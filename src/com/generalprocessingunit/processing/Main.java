@@ -3,6 +3,7 @@ package com.generalprocessingunit.processing;
 import com.illposed.osc.OSCListener;
 import com.illposed.osc.OSCMessage;
 import com.illposed.osc.OSCPortIn;
+import com.illposed.osc.OSCPortOut;
 import processing.core.PApplet;
 
 import java.awt.event.KeyEvent;
@@ -23,6 +24,7 @@ public class Main extends PApplet implements OSCListener {
     int millisAtLastdamage = 0;
     int score = 0;
     OSCPortIn oscPortIn;
+    OSCPortOut oscPortOut;
 
 	public static void main(String[] args){
 		PApplet.main(new String[] { /*"--present",*/ "com.generalprocessingunit.processing.Main" });
@@ -35,6 +37,7 @@ public class Main extends PApplet implements OSCListener {
             oscPortIn = new OSCPortIn(7400);
             oscPortIn.addListener("/note", this);
             oscPortIn.startListening();
+            oscPortOut = new OSCPortOut();
         }
         catch (Exception e){
             System.out.print(e);
@@ -158,6 +161,8 @@ public class Main extends PApplet implements OSCListener {
                     life -= 5;
                     millisAtLastdamage = millis();
                     note.active=false;
+
+                    playSound("/miss", Arrays.asList((Object)note.note));
                 }
 
                 break;
@@ -267,6 +272,8 @@ public class Main extends PApplet implements OSCListener {
                     monstar.active = false;
                     note.active = false;
                     score++;
+
+                    playSound("/collision");
                 }
 
                 // no need to check any previous notes since they are all behind this monstar
@@ -275,6 +282,19 @@ public class Main extends PApplet implements OSCListener {
                 }
             }
         }
+    }
+
+    private void playSound(String s, Collection<Object> args) {
+        OSCMessage msg = new OSCMessage(s, args);
+        try {
+            oscPortOut.send(msg);
+        } catch (Exception e) {
+            System.out.println("Couldn't send");
+        }
+    }
+
+    private void playSound(String s) {
+        playSound(s, null);
     }
 
     private void drawRadialGrid() {
