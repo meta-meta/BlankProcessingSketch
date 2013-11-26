@@ -6,20 +6,21 @@ import com.illposed.osc.OSCPortIn;
 import processing.core.PApplet;
 
 import java.awt.event.KeyEvent;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 
 public class Main extends PApplet implements OSCListener {
+    public static final int TIME_BETWEEN_SPAWNS = 1000;
+    public static final int LOWEST_NOTE = 48;
+    public static final int HIGHEST_NOTE = 83;
     List<Note> notes = new ArrayList<Note>();
     List<Monstar> monstars = new ArrayList<Monstar>();
 
-    // show notes recieved from 10 seconds ago
+    // show notes recieved from 5 seconds ago
     static final int EVENT_HORIZON = 5000;
     int millisAtLastMonstar = 0;
     float life = 100;
-    int millisAtLastdamage=0;
+    int millisAtLastdamage = 0;
     int score = 0;
     OSCPortIn oscPortIn;
 
@@ -49,70 +50,105 @@ public class Main extends PApplet implements OSCListener {
 	public void draw(){
         background(0);
 
-        stroke(40);
-        for(float theta = TWO_PI/24; theta < TWO_PI; theta += TWO_PI/12){
-            line(width/2, height/2, width/2+cos(theta)*600, height/2+sin(theta)*600);
+        drawRadialGrid();
+
+        detectCollisions();
+
+        drawMonstars();
+
+        drawNotes();
+
+        spawnMonstar();
+
+        life = min(100f, life + (millis() - millisAtLastdamage < 2000 ? 0f : 0.1f ));
+        if(life <= 0){
+            score = 0;
+            life = 100;
         }
 
-        for(int i = monstars.size() - 1; i > -1; i--){
-            Monstar monstar = monstars.get(i);
+        drawStats();
+	}
 
-            if(!monstar.active){
-                continue;
+    private void drawStats() {
+        noStroke();
+        fill(255, 0, 0);
+        rect(width - (width / 10), 0, ((width / 10f) / 100f) * life, 20);
+
+        noFill();
+        strokeWeight(2);
+        stroke(255,255,255);
+        rect(width - (width/10), 0, width, 20);
+
+        for(int i=0; i < score/5; i++){
+            ellipse(10 + 5*i, 10, 5, 5);
+        }
+    }
+
+    private void spawnMonstar() {
+        if((millis() - millisAtLastMonstar > TIME_BETWEEN_SPAWNS)){
+            if(currentSequence != -1 || (int)random(5) == 0){
+                monstars.add(new Monstar(getNextNote(), 3000));
+
+                //TODO: pick notes according to randomly picked sequences of deltas
             }
+            millisAtLastMonstar = millis();
+        }
+    }
 
-            int t =  millis()-monstar.millis;
-            int d = monstar.distance - t;
+    List<List<Integer>> spawnSequence = Arrays.asList(
+            Arrays.asList(2,2,1,2,2,2,1),
+            Arrays.asList(2,1,2,2,1,2,2),
+            Arrays.asList(4,-2,3,-1,3,-2,4,-2,4,-2,3,-1,3),
+            Arrays.asList(2,2,2,2,2,2,-2,-2,-2,-2,-2,-2),
 
+            Arrays.asList(-1) // the above are all ascending. if there is no descending option we can get stuck trying to force a in bounds new sequence
+//            TODO: perhaps label some of the more important ones
+//            build this into a class and have them show the labels or symbol when a sequence starts
+//            the player can then either ignore the cue and sight read or take the cue to know in advance
+//            what is coming
+    );
 
-            pushMatrix();
-            translate(width / 2, height / 2, (5000f / EVENT_HORIZON) * -d);
+    int currentNote = 60;
+    int currentSequence = -1;
+    Iterator<Integer> sequenceIterator;
 
-            float theta = TWO_PI / 12 * (monstar.note % 12);
-            rotate(theta);
+    private int getNextNote() {
 
-            stroke(255);
-            noFill();
-            if(d < 100){
-                rect(-10,-400,10,-380);
-                if(d<50){
-                    monstar.active = false;
-                    life-= 10;
-                    millisAtLastdamage = millis();
+        System.out.println("seq: " + currentSequence + " note: " + currentNote);
+
+        if(currentSequence == -1){
+            int i = -1;
+            // pick a sequence that will leave us in bounds
+            for(Boolean inBounds = false; !inBounds; ){
+                i = (int)random(spawnSequence.size()-1);
+                int nextNote = currentNote;
+                for(int x: spawnSequence.get(i)){
+                    nextNote += x;
                 }
+                inBounds = (nextNote >= LOWEST_NOTE && nextNote <= HIGHEST_NOTE);
             }
-            else
-            {
-                monstar.draw(0, -400, 50);
-            }
+            currentSequence = i;
 
-            for(int j = notes.size() - 1; j > -1; j--){
-                Note note = notes.get(j);
-                if(!note.active){
-                    continue;
-                }
-
-                if(note.note%12 != monstar.note%12){
-                    continue;
-                }
-
-                if(abs(d - (millis() - note.millis)) < 50){
-                    monstar.active = false;
-                    note.active = false;
-                    score++;
-                }
-
-                // no need to check any previous notes since they are all behind this monstar
-                if(millis() - note.millis > d){
-                    break;
-                }
-
-            }
-
-            popMatrix();
-
+            sequenceIterator = spawnSequence.get(currentSequence).iterator();
         }
 
+        if(!sequenceIterator.hasNext() || (int)random(5)==0){
+            currentSequence = -1;
+            currentNote = getRandomNote();
+            return currentNote;
+        }
+
+        currentNote += sequenceIterator.next();
+        return currentNote;
+    }
+
+    private int getRandomNote() {
+//        34 - 98 full range
+//        48 - 83 middle 3 octaves
+        return (int)random(LOWEST_NOTE, HIGHEST_NOTE);
+    }
+
+    private void drawNotes() {
         for(int i = notes.size() - 1; i > -1; i--){
             Note note = notes.get(i);
             int d = millis() - note.millis;
@@ -148,35 +184,121 @@ public class Main extends PApplet implements OSCListener {
             popMatrix();
 
         }
+    }
 
-        if((millis() - millisAtLastMonstar > 500)){
-            if((int)random(3) == 0){
-                monstars.add(new Monstar((int)random(6), 3000));
+    private void drawMonstars() {
+        for(Monstar monstar : monstars){
 
-                //TODO: pick notes according to randomly picked sequences of deltas
+            if(!monstar.active){
+                continue;
             }
-            millisAtLastMonstar = millis();
+
+            int t =  millis()-monstar.millis;
+            int d = monstar.distance - t;
+
+
+            pushMatrix();
+            translate(width / 2, height / 2, (5000f / EVENT_HORIZON) * -d);
+
+            float theta = TWO_PI / 12 * (monstar.note % 12);
+            rotate(theta);
+
+            stroke(255);
+            noFill();
+            if(d < 100){
+                rect(-10,-400,10,-380);
+                if(d<50){
+                    monstar.active = false;
+                    life-= 10;
+                    millisAtLastdamage = millis();
+                }
+            }
+            else
+            {
+                monstar.draw(0, -400, 50);
+            }
+
+            for(int i = notes.size() - 1; i > -1; i--){
+                Note note = notes.get(i);
+                if(!note.active){
+                    continue;
+                }
+
+                if(note.note%12 != monstar.note%12){
+                    continue;
+                }
+
+                if(abs(d - (millis() - note.millis)) < 50){
+                    monstar.active = false;
+                    note.active = false;
+                    score++;
+                }
+
+                // no need to check any previous notes since they are all behind this monstar
+                if(millis() - note.millis > d){
+                    break;
+                }
+            }
+
+            popMatrix();
+        }
+    }
+
+    private void detectCollisions() {
+        for(Monstar monstar : monstars){
+            if(!monstar.active){
+                continue;
+            }
+
+            int t = millis() - monstar.millis;
+            int d = monstar.distance - t;
+
+            for (int i = notes.size() - 1; i > -1; i--) {
+                Note note = notes.get(i);
+                if (!note.active) {
+                    continue;
+                }
+
+                if (note.note % 12 != monstar.note % 12) {
+                    continue;
+                }
+
+                if (abs(d - (millis() - note.millis)) < 50) {
+                    monstar.active = false;
+                    note.active = false;
+                    score++;
+                }
+
+                // no need to check any previous notes since they are all behind this monstar
+                if (millis() - note.millis > d) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void drawRadialGrid() {
+        stroke(40);
+//        for(float theta = TWO_PI/24; theta < TWO_PI; theta += TWO_PI/12){
+//            line(width/2, height/2, width/2+cos(theta)*600, height/2+sin(theta)*600);
+//        }
+//
+        pushMatrix();
+        translate(width/2, height/2);
+        for(float theta = TWO_PI/24; theta < TWO_PI; theta += TWO_PI/12){
+
+            float x1 = cos(theta)*500,
+                    y1 = sin(theta)*500,
+                    x2 = cos(theta)*50,
+                    y2 = sin(theta)*50;
+
+            line(x1,y1,x2,y2);
+
         }
 
-        life = min(100f, life + (millis() - millisAtLastdamage < 2000 ? 0f : 0.1f ));
-        if(life <= 0){
-            score = 0;
-            life = 100;
-        }
-
-        noStroke();
-        fill(255,0,0);
-        rect(width - (width/10), 0, ((width/10f)/100f) * life, 20);
-
-        noFill();
-        strokeWeight(2);
-        stroke(255,255,255);
-        rect(width - (width/10), 0, width, 20);
-
-        for(int i=0; i < score/5; i++){
-            ellipse(10 + 5*i, 10, 5, 5);
-        }
-	}
+        ellipse(0,0,100,100);
+        popMatrix();
+    }
 
 
     @Override
@@ -230,8 +352,9 @@ public class Main extends PApplet implements OSCListener {
             pushMatrix();
             translate(x,y);
             rotate(millis()/1000f);
-            for(float theta=0; theta<TWO_PI; theta+=TWO_PI/5){
-                line(cos(theta) * r, sin(theta)*r, cos(theta + 2*TWO_PI/5)*r, sin(theta + 2*TWO_PI/5)*r);
+            int points = 11 - note/12;
+            for(float theta=0; theta<TWO_PI; theta+=TWO_PI/points){
+                line(cos(theta) * r, sin(theta)*r, cos(theta + 2*TWO_PI/points)*r, sin(theta + 2*TWO_PI/points)*r);
             }
             popMatrix();
         }
