@@ -11,7 +11,18 @@ import java.util.*;
 
 
 public class Main extends PApplet implements OSCListener {
-    public static final int TIME_BETWEEN_SPAWNS = 1000;
+    public static final int HIT_STREAK_TO_SPEED_UP = 5;
+    public static final int TIME_BETWEEN_SPAWNS_DEC = 50;
+    public static final int MIN_TIME_BETWEEN_SPAWNS = 100;
+
+    public static final int MISS_STREAK_TO_SLOW_DOWN = 3;
+    public static final int TIME_BETWEEN_SPAWNS_INC = 200;
+    public static final int MAX_TIME_BETWEEN_SPAWNS = 2000;
+
+    int timeBetweenSpawns = 1000;
+    int hitStreak = 0;
+    int missStreak = 0;
+
     public static final int LOWEST_NOTE = 48;
     public static final int HIGHEST_NOTE = 83;
     List<Note> notes = new ArrayList<Note>();
@@ -69,6 +80,19 @@ public class Main extends PApplet implements OSCListener {
             life = 100;
         }
 
+        if(hitStreak > HIT_STREAK_TO_SPEED_UP){
+            hitStreak = 0;
+            timeBetweenSpawns = max(MIN_TIME_BETWEEN_SPAWNS, timeBetweenSpawns - TIME_BETWEEN_SPAWNS_DEC);
+            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
+        }
+
+        if(missStreak > MISS_STREAK_TO_SLOW_DOWN){
+            missStreak = 0;
+            timeBetweenSpawns = min(MAX_TIME_BETWEEN_SPAWNS, timeBetweenSpawns + TIME_BETWEEN_SPAWNS_INC);
+            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
+
+        }
+
         drawStats();
 	}
 
@@ -88,23 +112,35 @@ public class Main extends PApplet implements OSCListener {
     }
 
     private void spawnMonstar() {
-        if((millis() - millisAtLastMonstar > TIME_BETWEEN_SPAWNS)){
-            if(currentSequence != -1 || (int)random(5) == 0){
-                monstars.add(new Monstar(getNextNote(), 3000));
-
-                //TODO: pick notes according to randomly picked sequences of deltas
-            }
+        if((millis() - millisAtLastMonstar > timeBetweenSpawns)){
+            int nextNote = getNextNote();
+            monstars.add(new Monstar(nextNote, 3000));
+            playSound("/spawn", Arrays.asList((Object)nextNote));
             millisAtLastMonstar = millis();
         }
     }
 
+    private List<Integer> invert(List<Integer> oldList){
+        List<Integer> newList = new ArrayList<Integer>(oldList.size());
+        for(int i=oldList.size()-1; i >= 0; i--){
+            newList.add(-oldList.get(i));
+        }
+        return  newList;
+    }
+
     List<List<Integer>> spawnSequence = Arrays.asList(
             Arrays.asList(2,2,1,2,2,2,1),
-            Arrays.asList(2,1,2,2,1,2,2),
+            invert(Arrays.asList(2,2,1,2,2,2,1)),
+//            Arrays.asList(2,1,2,2,1,2,2),
             Arrays.asList(4,-2,3,-1,3,-2,4,-2,4,-2,3,-1,3),
-            Arrays.asList(2,2,2,2,2,2,-2,-2,-2,-2,-2,-2),
+            invert(Arrays.asList(4,-2,3,-1,3,-2,4,-2,4,-2,3,-1,3))
+//            Arrays.asList(2,2,2,2,2,2,-2,-2,-2,-2,-2,-2),
+//            Arrays.asList(7),
+//            Arrays.asList(-7),
+//            Arrays.asList(5),
+//            Arrays.asList(-5)
 
-            Arrays.asList(-1) // the above are all ascending. if there is no descending option we can get stuck trying to force a in bounds new sequence
+//            Arrays.asList(-1) // the above are all ascending. if there is no descending option we can get stuck trying to force a in bounds new sequence
 //            TODO: perhaps label some of the more important ones
 //            build this into a class and have them show the labels or symbol when a sequence starts
 //            the player can then either ignore the cue and sight read or take the cue to know in advance
@@ -116,14 +152,17 @@ public class Main extends PApplet implements OSCListener {
     Iterator<Integer> sequenceIterator;
 
     private int getNextNote() {
+        if(currentSequence == -1 || !sequenceIterator.hasNext()){
+//            if((int)random(5) == 0){
+//                currentSequence = -1;
+//                currentNote = getRandomNote();
+//                return currentNote;
+//            }
 
-        System.out.println("seq: " + currentSequence + " note: " + currentNote);
-
-        if(currentSequence == -1){
             int i = -1;
             // pick a sequence that will leave us in bounds
             for(Boolean inBounds = false; !inBounds; ){
-                i = (int)random(spawnSequence.size()-1);
+                i = (int)random(spawnSequence.size());
                 int nextNote = currentNote;
                 for(int x: spawnSequence.get(i)){
                     nextNote += x;
@@ -135,13 +174,8 @@ public class Main extends PApplet implements OSCListener {
             sequenceIterator = spawnSequence.get(currentSequence).iterator();
         }
 
-        if(!sequenceIterator.hasNext() || (int)random(5)==0){
-            currentSequence = -1;
-            currentNote = getRandomNote();
-            return currentNote;
-        }
-
         currentNote += sequenceIterator.next();
+        System.out.println("seq: " + currentSequence + " note: " + currentNote);
         return currentNote;
     }
 
@@ -160,6 +194,8 @@ public class Main extends PApplet implements OSCListener {
                 if(note.active){
                     life -= 5;
                     millisAtLastdamage = millis();
+                    missStreak++;
+                    hitStreak = 0;
                     note.active=false;
 
                     playSound("/miss", Arrays.asList((Object)note.note));
@@ -215,34 +251,14 @@ public class Main extends PApplet implements OSCListener {
                 if(d<50){
                     monstar.active = false;
                     life-= 10;
+                    missStreak++;
+                    hitStreak = 0;
                     millisAtLastdamage = millis();
                 }
             }
             else
             {
                 monstar.draw(0, -400, 50);
-            }
-
-            for(int i = notes.size() - 1; i > -1; i--){
-                Note note = notes.get(i);
-                if(!note.active){
-                    continue;
-                }
-
-                if(note.note%12 != monstar.note%12){
-                    continue;
-                }
-
-                if(abs(d - (millis() - note.millis)) < 50){
-                    monstar.active = false;
-                    note.active = false;
-                    score++;
-                }
-
-                // no need to check any previous notes since they are all behind this monstar
-                if(millis() - note.millis > d){
-                    break;
-                }
             }
 
             popMatrix();
@@ -264,7 +280,7 @@ public class Main extends PApplet implements OSCListener {
                     continue;
                 }
 
-                if (note.note % 12 != monstar.note % 12) {
+                if (note.note /*% 12 */!= monstar.note /*% 12*/) {
                     continue;
                 }
 
@@ -272,6 +288,8 @@ public class Main extends PApplet implements OSCListener {
                     monstar.active = false;
                     note.active = false;
                     score++;
+                    hitStreak ++;
+                    missStreak = 0;
 
                     playSound("/collision");
                 }
@@ -373,6 +391,15 @@ public class Main extends PApplet implements OSCListener {
             translate(x,y);
             rotate(millis()/1000f);
             int points = 11 - note/12;
+
+            if(points == 7){
+                stroke(255, 100, 100);
+            } else if(points == 6){
+                stroke(100, 255, 100);
+            }  else {
+                stroke(100, 100, 255);
+            }
+
             for(float theta=0; theta<TWO_PI; theta+=TWO_PI/points){
                 line(cos(theta) * r, sin(theta)*r, cos(theta + 2*TWO_PI/points)*r, sin(theta + 2*TWO_PI/points)*r);
             }
