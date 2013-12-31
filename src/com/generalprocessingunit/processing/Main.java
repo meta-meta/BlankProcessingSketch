@@ -279,15 +279,17 @@ public class Main extends PApplet implements OSCListener {
             int d = monstar.distanceAtSpawn - t;
 
             pushMatrix();
-            translate(width / 2, height / 2, (Z_DEPTH / EVENT_HORIZON) * -d);
+            translate(width / 2, height / 2);
 
             float theta = TWO_PI / 12 * (monstar.note % 12);
             rotate(theta);
 
             stroke(255);
             noFill();
-            if (d < 100) {
-                rect(-10, -width / 2, 10, -380);
+            if (d < 50) {
+                strokeWeight(20);
+                arc(0, 0, width - 25, width - 25, -TWO_PI / 24 - HALF_PI, TWO_PI / 24 - HALF_PI);
+
                 if (d < 50) {
                     monstarsToRemove.add(monstar);
                     life -= 10;
@@ -296,6 +298,8 @@ public class Main extends PApplet implements OSCListener {
                     millisAtLastdamage = millis();
                 }
             } else {
+                strokeWeight(1);
+                translate(0, 0, (Z_DEPTH / EVENT_HORIZON) * -d);
                 monstar.draw(0, -width / 2, 50);
             }
 
