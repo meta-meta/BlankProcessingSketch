@@ -315,8 +315,10 @@ public class Main extends PApplet implements OSCListener {
         List<Monstar> monstarsToRemove = new ArrayList<>();
 
         for(Monstar monstar : monstars){
-            int t = millis() - monstar.millis;
-            int d = monstar.distanceAtSpawn - t;
+            int millis = millis();
+            int t = millis - monstar.millis;
+            int monstarDistance = monstar.distanceAtSpawn - t;
+
 
             for (int i = notes.size() - 1; i > -1; i--) {
                 Note note = notes.get(i);
@@ -328,19 +330,22 @@ public class Main extends PApplet implements OSCListener {
                     continue;
                 }
 
+                int noteDistance = millis - note.millis;
+                int noteTailDistance = note.noteOffReceived ? millis - note.millisAtNoteOff : 0;
+
                 // if collision
-                if (abs(d - (millis() - note.millis)) < 50) {
+                if (abs(noteTailDistance - monstarDistance) <= 2*(millis - millisAtLastDraw)) {
                     monstarsToRemove.add(monstar);
                     note.active = false;
                     score++;
-                    hitStreak ++;
+                    hitStreak++;
                     missStreak = 0;
 
                     playSound("/collision");
                 }
 
                 // no need to check any previous notes since they are all behind this monstar
-                if (millis() - note.millis > d) {
+                if (noteDistance > monstarDistance) {
                     break;
                 }
             }
