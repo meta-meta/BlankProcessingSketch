@@ -5,6 +5,7 @@ import com.illposed.osc.OSCMessage;
 import com.illposed.osc.OSCPortIn;
 import com.illposed.osc.OSCPortOut;
 import processing.core.PApplet;
+import processing.core.PGraphics;
 
 import java.awt.event.KeyEvent;
 import java.util.*;
@@ -60,6 +61,8 @@ public class Main extends PApplet implements OSCListener {
     OSCPortIn oscPortIn;
     OSCPortOut oscPortOut;
 
+    PGraphics background;
+
     public static void main(String[] args){
 		PApplet.main(new String[] { /*"--present",*/ "com.generalprocessingunit.processing.Main" });
 	}
@@ -69,7 +72,8 @@ public class Main extends PApplet implements OSCListener {
 
         try{
             oscPortIn = new OSCPortIn(7400);
-            oscPortIn.addListener("/note", this);
+            oscPortIn.addListener("/noteOn", this);
+            oscPortIn.addListener("/noteOff", this);
             oscPortIn.startListening();
             oscPortOut = new OSCPortOut();
         }
@@ -81,13 +85,16 @@ public class Main extends PApplet implements OSCListener {
 	@Override
 	public void setup() {		
 		size(1000, 1000, PApplet.OPENGL);
+
+        background = createGraphics(width, height, P3D);
+        drawBackground(background);
 	}
 	
 	@Override
 	public void draw(){
-        background(0);
-
-        drawRadialGrid();
+        hint(DISABLE_DEPTH_MASK);
+        image(background.get(), 0, 0);
+        hint(ENABLE_DEPTH_MASK);
 
         detectCollisions();
 
@@ -110,13 +117,13 @@ public class Main extends PApplet implements OSCListener {
         if(hitStreak > HIT_STREAK_TO_SPEED_UP){
             hitStreak = 0;
             timeBetweenSpawns = max(MIN_TIME_BETWEEN_SPAWNS, timeBetweenSpawns - TIME_BETWEEN_SPAWNS_DEC);
-            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
+//            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
         }
 
         if(missStreak > MISS_STREAK_TO_SLOW_DOWN){
             missStreak = 0;
             timeBetweenSpawns = min(MAX_TIME_BETWEEN_SPAWNS, timeBetweenSpawns + TIME_BETWEEN_SPAWNS_INC);
-            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
+//            System.out.println("TimeBetweenSpawns: " + timeBetweenSpawns);
 
         }
 
@@ -205,7 +212,7 @@ public class Main extends PApplet implements OSCListener {
         }
 
         currentNote += sequenceIterator.next();
-        System.out.println("seq: " + currentSequence + " note: " + currentNote);
+//        System.out.println("seq: " + currentSequence + " note: " + currentNote);
         return currentNote;
     }
 
@@ -217,6 +224,7 @@ public class Main extends PApplet implements OSCListener {
         for(int i = notes.size() - 1; i > -1; i--){
             Note note = notes.get(i);
             int d = millis() - note.millis;
+            int d2 = note.noteOffReceived ? millis() - note.millisAtNoteOff : 0;
 
             if(d > EVENT_HORIZON){
                 if (note.active) {
@@ -239,18 +247,25 @@ public class Main extends PApplet implements OSCListener {
             // color the note
             float hue = (255f / 12) * (note.note % 12);
             colorMode(HSB);
-            fill(hue, 255, d < 50 ? 255 : 150 - 150f / EVENT_HORIZON * d);
+            stroke(hue, 255, 255 - 150f / EVENT_HORIZON * d);
             colorMode(RGB);
-            noStroke();
+            noFill();
 
             pushMatrix();
-            translate(width / 2, height / 2, (Z_DEPTH / EVENT_HORIZON) * -d);
+            translate(width / 2, height / 2);
             float theta = TWO_PI / 12 * (note.note % 12);
             rotate(theta);
 
-            int octave = note.note / 12;
-            ellipse(0, -400, 200 - 25 * octave, 0 + 25 * octave);
-//            ellipse(-300 + note.note%12 * 70, note.note/12 * -100 +  d*0.1f, 50, 50);
+            float   z1 = (Z_DEPTH / EVENT_HORIZON) * -d,
+                    z2 = (Z_DEPTH / EVENT_HORIZON) * -d2;
+
+            int octave = note.note / 12 - 2;
+            strokeWeight(30 / (1.5f * octave));
+            for (int o = 0; o < octave; o++) {
+                float x = 20 * o - (10 * octave) + 10;
+                line(x, -width / 2, z1, x, -width / 2, z2);
+            }
+
             popMatrix();
 
         }
@@ -272,7 +287,7 @@ public class Main extends PApplet implements OSCListener {
             stroke(255);
             noFill();
             if (d < 100) {
-                rect(-10, -400, 10, -380);
+                rect(-10, -width / 2, 10, -380);
                 if (d < 50) {
                     monstarsToRemove.add(monstar);
                     life -= 10;
@@ -281,7 +296,7 @@ public class Main extends PApplet implements OSCListener {
                     millisAtLastdamage = millis();
                 }
             } else {
-                monstar.draw(0, -400, 50);
+                monstar.draw(0, -width / 2, 50);
             }
 
             popMatrix();
@@ -345,25 +360,35 @@ public class Main extends PApplet implements OSCListener {
         playSound(s, null);
     }
 
-    private void drawRadialGrid() {
-        stroke(40);
+    private void drawBackground(PGraphics buffer) {
+        buffer.beginDraw();
+        buffer.background(30,0,40);
+        buffer.fill(0);
+        buffer.noStroke();
+        buffer.ellipse(width / 2f, height / 2f, width, width);
+        buffer.colorMode(HSB);
 
-        pushMatrix();
-        translate(width / 2, height / 2);
+        for(int r = width-50; r > 50; r -= r/30){
+            buffer.strokeWeight(4f * r / (float) width);
+            buffer.stroke(240, 200, 0.4f * (r * (255f / width)));
+            buffer.ellipse(width / 2f, height / 2f, r, r);
 
-        for (float theta = TWO_PI / 24; theta < TWO_PI; theta += TWO_PI / 12) {
+            buffer.pushMatrix();
+            buffer.translate(width / 2, height / 2);
 
-            float   x1 = cos(theta) * (width / 2),
-                    y1 = sin(theta) * (width / 2),
-                    x2 = cos(theta) * (width / 20),
-                    y2 = sin(theta) * (width / 20);
+            for (float theta = TWO_PI / 24; theta < TWO_PI; theta += TWO_PI / 12) {
 
-            line(x1, y1, x2, y2);
+                float   x1 = cos(theta) * (r),
+                        y1 = sin(theta) * (r),
+                        x2 = cos(theta) * (r - r/30),
+                        y2 = sin(theta) * (r - r/30);
+
+                buffer.line(x1 / 2, y1 / 2, x2 / 2, y2 / 2);
+            }
+
+            buffer.popMatrix();
         }
-
-        ellipse(0, 0, 100, 100);
-
-        popMatrix();
+        buffer.endDraw();
     }
 
     @Override
@@ -371,9 +396,14 @@ public class Main extends PApplet implements OSCListener {
         message.getAddress();
         message.getArguments();
 
-        int note = (Integer) message.getArguments()[0];
-        notes.add(new Note(note, millis()));
-//        System.out.print(message.getArguments());
+        if(message.getAddress().equals("/noteOn")){
+            int note = (Integer) message.getArguments()[0];
+            notes.add(new Note(note, millis()));
+//            System.out.println("note received: " + note);
+        } else if (message.getAddress().equals("/noteOff")){
+            notes.get(notes.size()-1).noteOff();
+//            System.out.println("note OFF: " + notes.get(notes.size()-1).note);
+        }
     }
 
     @Override
@@ -392,14 +422,22 @@ public class Main extends PApplet implements OSCListener {
     }
 
     private class Note {
+        int note;
+        int millis;
+        boolean active = true;
+
         public Note(int note, int millis) {
             this.note = note;
             this.millis = millis;
         }
 
-        int note;
-        int millis;
-        boolean active = true;
+        boolean noteOffReceived = false;
+        int millisAtNoteOff;
+
+        public void noteOff(){
+            noteOffReceived = true;
+            millisAtNoteOff = millis();
+        }
     }
 
     private class Monstar {
