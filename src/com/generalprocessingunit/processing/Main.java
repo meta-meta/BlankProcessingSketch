@@ -4,6 +4,8 @@ import processing.core.PApplet;
 import processing.core.PGraphics;
 import processing.core.PImage;
 
+import java.awt.event.MouseWheelEvent;
+
 
 public class Main extends PApplet{
 	public static void main(String[] args){
@@ -11,7 +13,7 @@ public class Main extends PApplet{
 	}
 
 
-    PGraphics[] pg = new PGraphics[7];
+    PGraphics[] pg = new PGraphics[12];
 	@Override
 	public void setup() {		
 		size(1920, 1080, PApplet.OPENGL);
@@ -19,7 +21,7 @@ public class Main extends PApplet{
         // create the PGraphics buffers
         for (int i = 0; i < pg.length; i++)
         {
-            pg[i] = createGraphics(300 + i * 10, 300 + i * 10, P3D);
+            pg[i] = createGraphics(200 + i * 10, 200 + i * 10, P3D);
             pg[i].background(0);
         }
     }
@@ -38,7 +40,7 @@ public class Main extends PApplet{
             // fade the background
             pg[i].blendMode(BLEND);
             pg[i].colorMode(RGB);
-            pg[i].fill(0, 10 * (i+1));
+            pg[i].fill(0, (50 * (float)mouseX/width) * (i+1));
             pg[i].rect(0,0,pg[i].width,pg[i].height);
 
             if (pg.length - 1 == i){
@@ -59,7 +61,7 @@ public class Main extends PApplet{
             pg[i].stroke(   127 + sin((i + 1) * (frameCount / 50f)) * 127,
                             200,
                             255,
-                            1 * (i + 1));   // alpha is a delicate balance with the black rect above
+                    (20 * (float)mouseY/height) * (i + 1));   // alpha is a delicate balance with the black rect above
             pg[i].strokeWeight(1 + i/2);
 
             if(i > 0){
@@ -69,7 +71,7 @@ public class Main extends PApplet{
 
                 pg[i].fill(2);
                 pg[i].textureMode(REPEAT);
-                texturedCube(pg[i - 1].get(), pg[i], 36);
+                texturedCube(pg[i - 1].get(), pg[i], cubeSize);
 
             }
 
@@ -78,6 +80,15 @@ public class Main extends PApplet{
 
         background(255);
         image(pg[pg.length-1], 0, 0, width, height);
+    }
+
+    float cubeSize = 50;
+
+    @Override
+    public void mouseWheelMoved(MouseWheelEvent e)
+    {
+        cubeSize += e.getPreciseWheelRotation();
+        super.mouseWheelMoved(e);
     }
 
     void texturedCube(PImage tex, PGraphics pg, float size) {
