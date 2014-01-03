@@ -157,116 +157,21 @@ public class Main extends PApplet implements OSCListener {
         }
     }
 
-    private static class Sequences {
-        private static Map<String, List<Integer>> sequences = new HashMap<>();
-
-        static String[] keySet;
-
-        static Integer size(){
-            return sequences.size();
-        }
-
-        static {
-            Sequences.put("Chromatic Octave", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
-            Sequences.put("Whole Tone Scale", 2, 2, 2, 2, 2, 2);
-            Sequences.put("Ionian Mode", 2, 2, 1, 2, 2, 2, 1);
-            Sequences.put("Dorian Mode", 2, 1, 2, 2, 2, 1, 2);
-            Sequences.put("Phrygian Mode ", 1, 2, 2, 2, 1, 2, 2);
-            Sequences.put("Lydian Mode", 2, 2, 2, 1, 2, 2, 1);
-            Sequences.put("Mixolydian Mode", 2, 2, 1, 2, 2, 1, 2);
-            Sequences.put("Aeolian Mode", 2, 1, 2, 2, 1, 2, 2);
-            Sequences.put("Locrian Mode", 1, 2, 2, 1, 2, 2, 2);
-
-
-
-            // TODO: these should be next level and 1324 should be a level up from each of these groups
-            Sequences.put("Major", 4, 3, 5);
-            Sequences.put("Minor", 3, 4, 5);
-            Sequences.put("Diminished", 3, 3, 6);
-            Sequences.put("Augmented", 4, 4, 4);
-            Sequences.put("Major 7",4, 3, 4, 1);
-            Sequences.put("Minor 7", 3, 4, 3, 2);
-            Sequences.put("Dominant 7", 4, 3, 3, 2);
-            Sequences.put("Minor Major 7", 3, 4, 4, 1);
-            Sequences.put("Diminished 7", 3, 3, 3, 3);
-            Sequences.put("Half-diminished", 3, 3, 4, 2);
-            Sequences.put("Augmented 7", 4, 4, 2, 2);
-
-            keySet = sequences.keySet().toArray(new String[size()]);
-        }
-
-        static List<Integer> get(Integer i){
-            return sequences.get(keySet[i]);
-        }
-
-        static String getTitle(Integer i){
-            return keySet[i];
-        }
-
-        private static void put(String title, Integer... array){
-            sequences.put(title, Arrays.asList(array));
-            putInverse(title, array);
-            put1324(title, array);
-        }
-
-        private static void putInverse(String title, Integer... array){
-            sequences.put(title + " desc", invert(Arrays.asList(array)));
-        }
-
-        private static void put1324(String title, Integer... array){
-            if(array.length < 2){
-                return;
-            }
-
-            List<Integer> newList = new ArrayList<>();
-            for(int i = 0; i < array.length; i++){
-                newList.add(array[i] + array[(i+1) % array.length]);
-                newList.add(-array[(i+1) % array.length]);
-            }
-
-            sequences.put(title + " 1324", newList);
-        }
-
-        private static List<Integer> invert(List<Integer> oldList) {
-            List<Integer> newList = new ArrayList<>(oldList.size());
-            for (int i = oldList.size() - 1; i >= 0; i--) {
-                newList.add(-oldList.get(i));
-            }
-            return newList;
-        }
-    }
-
     int currentNote = 60;
-    int currentSequence = -1;
+    String currentSequence = "";
     Iterator<Integer> sequenceIterator;
 
     private int getNextNote() {
-        if(currentSequence == -1 || !sequenceIterator.hasNext()){
-//            if((int)random(5) == 0){
-//                currentSequence = -1;
-//                currentNote = getRandomNote();
-//                return currentNote;
-//            }
-
-            int i = -1;
-            // pick a sequence that will leave us in bounds
-            for(Boolean inBounds = false; !inBounds; ){
-                i = (int)random(Sequences.size());
-                int nextNote = currentNote;
-                for(int x: Sequences.get(i)){
-                    nextNote += x;
-                }
-                inBounds = (nextNote >= LOWEST_NOTE && nextNote <= HIGHEST_NOTE);
-            }
-            currentSequence = i;
-
-            sequenceIterator = Sequences.get(currentSequence).iterator();
+        if(currentSequence.isEmpty() || !sequenceIterator.hasNext()){
+            currentSequence = Drills.getSequenceIdInBounds(currentNote, LOWEST_NOTE, HIGHEST_NOTE, Drills.Sequences.sequenceIds());
+            sequenceIterator = Drills.Sequences.get(currentSequence).iterator();
         }
 
         currentNote += sequenceIterator.next();
-        System.out.println("seq: " + Sequences.getTitle(currentSequence) + " note: " + currentNote);
+        System.out.println("seq: " + currentSequence + " note: " + currentNote);
         return currentNote;
     }
+
 
     private int getRandomNote() {
         return (int)random(LOWEST_NOTE, HIGHEST_NOTE);
@@ -386,7 +291,8 @@ public class Main extends PApplet implements OSCListener {
                 int noteTailDistance = note.noteOffReceived ? millis - note.millisAtNoteOff : 0;
 
                 // if collision
-                if (abs(noteTailDistance - monstarDistance) <= 2*(millis - millisAtLastDraw)) {
+                if (abs(noteTailDistance - monstarDistance) <= 2*(millis - millisAtLastDraw) ||
+                        abs(noteDistance - monstarDistance) <= 2*(millis - millisAtLastDraw)) {
                     monstarsToRemove.add(monstar);
                     note.active = false;
                     score++;
