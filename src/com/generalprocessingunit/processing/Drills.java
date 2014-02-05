@@ -64,8 +64,6 @@ public class Drills {
     Iterator<Integer> currentSequenceIterator;
     int currentNote = 0;
 
-
-
     void playSequence(String sequenceId){
         currentSequenceAttempt = new SequenceAttempt(sequenceId);
         currentSequenceLength = Sequences.get(sequenceId).size() + 1; // +1 for the given first note
@@ -115,6 +113,7 @@ public class Drills {
         if(Math.random() > 0.4){
             // TODO: get sequence that needs practice and is in bounds
             playSequence(getSequenceIdInBounds(currentNote, lowestNote, highestNote, sequencesThatNeedPractice));
+            return;
         }
 
 
