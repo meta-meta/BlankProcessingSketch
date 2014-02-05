@@ -7,8 +7,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="core" />
     <orderEntry type="module" module-name="JavaOSC" />
+    <orderEntry type="module" module-name="processing-core" />
   </component>
 </module>
 

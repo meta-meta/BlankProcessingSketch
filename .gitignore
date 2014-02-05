@@ -1,6 +1,10 @@
 *.class
+out/
 
 # Package Files #
 *.jar
 *.war
 *.ear
+
+.idea/workspace.xml
+.idea/tasks.xml
